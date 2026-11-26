@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, X, Home, CreditCard, Lock } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { BucketKey } from "@/types";
 import { formatINR } from "@/utils/currency";
 
@@ -17,8 +17,6 @@ const CATEGORIES = [
   "Groceries",
   "Food Delivery / Junk",
   "Bills",
-  "Healthcare",
-  "Entertainment",
   "Shopping",
   "Other",
 ];
@@ -42,18 +40,14 @@ export function AddExpenseModal({ onAdd }: AddExpenseModalProps) {
     setOpen(false);
   };
 
-  const addPreset = (val: number) => {
-    setAmount(String(parsedAmount + val));
-  };
-
   return (
     <>
       <button
         onClick={() => setOpen(true)}
-        className="btn-tap flex-1 flex items-center justify-center gap-2 h-12 rounded-2xl bg-emerald-500 text-zinc-950 font-bold text-sm shadow-lg shadow-emerald-500/20"
+        className="btn-tap flex-1 flex items-center justify-center gap-1.5 h-12 rounded-2xl bg-emerald-500 text-zinc-950 font-bold text-sm"
       >
         <Plus size={18} strokeWidth={2.5} />
-        Deduct Expense
+        Spend
       </button>
 
       <AnimatePresence>
@@ -73,11 +67,10 @@ export function AddExpenseModal({ onAdd }: AddExpenseModalProps) {
               transition={{ type: "spring", stiffness: 420, damping: 36 }}
               className="fixed bottom-0 left-0 right-0 z-50 bg-zinc-900 border-t border-zinc-800 rounded-t-3xl pb-safe max-w-md mx-auto"
             >
-              <div className="p-5 space-y-4">
-                {/* Drag handle + Header */}
+              <div className="p-5 space-y-3.5">
                 <div className="w-10 h-1 bg-zinc-700 rounded-full mx-auto -mt-1" />
                 <div className="flex items-center justify-between">
-                  <h3 className="text-base font-bold text-white">Log Expense</h3>
+                  <h3 className="text-base font-bold text-white">Add Expense</h3>
                   <button
                     onClick={() => setOpen(false)}
                     className="btn-tap w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center"
@@ -86,8 +79,8 @@ export function AddExpenseModal({ onAdd }: AddExpenseModalProps) {
                   </button>
                 </div>
 
-                {/* Amount Input + Presets */}
-                <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4">
+                {/* Amount */}
+                <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-3.5">
                   <div className="flex items-center gap-2">
                     <span className="text-3xl font-medium text-zinc-500">₹</span>
                     <input
@@ -100,11 +93,11 @@ export function AddExpenseModal({ onAdd }: AddExpenseModalProps) {
                       autoFocus
                     />
                   </div>
-                  <div className="flex gap-2 mt-3">
+                  <div className="flex gap-2 mt-2.5">
                     {PRESET_AMOUNTS.map((p) => (
                       <button
                         key={p}
-                        onClick={() => addPreset(p)}
+                        onClick={() => setAmount(String(parsedAmount + p))}
                         className="btn-tap flex-1 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-semibold text-zinc-300"
                       >
                         +₹{p}
@@ -113,63 +106,52 @@ export function AddExpenseModal({ onAdd }: AddExpenseModalProps) {
                   </div>
                 </div>
 
-                {/* Category Pills */}
-                <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">
-                    Category
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {CATEGORIES.map((c) => {
-                      const active = category === c;
-                      return (
-                        <button
-                          key={c}
-                          onClick={() => setCategory(c)}
-                          className={`btn-tap px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
-                            active
-                              ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300"
-                              : "bg-zinc-950/70 border-zinc-800 text-zinc-400"
-                          }`}
-                        >
-                          {c}
-                        </button>
-                      );
-                    })}
-                  </div>
+                {/* Category */}
+                <div className="flex flex-wrap gap-1.5">
+                  {CATEGORIES.map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => setCategory(c)}
+                      className={`btn-tap px-3 py-1.5 rounded-xl text-xs font-medium border ${
+                        category === c
+                          ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300"
+                          : "bg-zinc-950/70 border-zinc-800 text-zinc-400"
+                      }`}
+                    >
+                      {c === "Food Delivery / Junk" ? "Junk Food" : c}
+                    </button>
+                  ))}
                 </div>
 
-                {/* Note + Bucket */}
-                <div className="grid grid-cols-1 gap-3">
-                  <input
-                    type="text"
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    placeholder="Add a note (optional)"
-                    className="w-full bg-zinc-950 border border-zinc-800 text-white text-sm rounded-2xl px-4 py-3 outline-none placeholder:text-zinc-600"
-                  />
+                <input
+                  type="text"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Note (optional)"
+                  className="w-full bg-zinc-950 border border-zinc-800 text-white text-sm rounded-2xl px-4 py-2.5 outline-none placeholder:text-zinc-600"
+                />
 
-                  <div className="grid grid-cols-3 gap-2">
-                    {(
-                      [
-                        { id: "needs", label: "Needs", Icon: Home },
-                        { id: "spend", label: "Spend", Icon: CreditCard },
-                        { id: "savings", label: "Vault", Icon: Lock },
-                      ] as const
-                    ).map(({ id, label, Icon }) => (
-                      <button
-                        key={id}
-                        onClick={() => setBucket(id)}
-                        className={`btn-tap flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold border transition-colors ${
-                          bucket === id
-                            ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300"
-                            : "bg-zinc-950/70 border-zinc-800 text-zinc-400"
-                        }`}
-                      >
-                        <Icon size={13} />
-                        {label}
-                      </button>
-                    ))}
-                  </div>
+                {/* Bucket */}
+                <div className="grid grid-cols-3 gap-2">
+                  {(
+                    [
+                      { id: "needs", label: "Needs" },
+                      { id: "spend", label: "Spend" },
+                      { id: "savings", label: "Vault" },
+                    ] as const
+                  ).map(({ id, label }) => (
+                    <button
+                      key={id}
+                      onClick={() => setBucket(id)}
+                      className={`btn-tap py-2 rounded-xl text-xs font-semibold border ${
+                        bucket === id
+                          ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300"
+                          : "bg-zinc-950/70 border-zinc-800 text-zinc-400"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </div>
 
                 <button
@@ -177,9 +159,7 @@ export function AddExpenseModal({ onAdd }: AddExpenseModalProps) {
                   disabled={parsedAmount <= 0}
                   className="btn-tap w-full py-3.5 rounded-2xl bg-emerald-500 disabled:opacity-40 text-zinc-950 font-bold text-sm"
                 >
-                  {parsedAmount > 0
-                    ? `Deduct ${formatINR(parsedAmount)}`
-                    : "Enter Amount"}
+                  {parsedAmount > 0 ? `Deduct ${formatINR(parsedAmount)}` : "Enter Amount"}
                 </button>
               </div>
             </motion.div>

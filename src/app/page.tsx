@@ -1,28 +1,35 @@
 "use client";
 
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { Clock, IndianRupee } from "lucide-react";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Wallet } from "lucide-react";
 import { useWalletStore } from "@/hooks/useWalletStore";
 import { BottomTabBar } from "@/components/ui/BottomTabBar";
 import { AutoDeductToast } from "@/components/ui/AutoDeductToast";
+import { SplashScreen } from "@/components/ui/SplashScreen";
 import { HomeTab } from "@/components/home/HomeTab";
 import { AutoRulesTab } from "@/components/autorules/AutoRulesTab";
 import { ForecastTab } from "@/components/forecast/ForecastTab";
 import { SettingsTab } from "@/components/settings/SettingsTab";
-import { formatINR, toLifeHours } from "@/utils/currency";
+import { formatINR } from "@/utils/currency";
 
 type Tab = "home" | "rules" | "forecast" | "settings";
 
 const TAB_LABELS: Record<Tab, string> = {
-  home: "FlowWallet",
-  rules: "Auto-Rules",
-  forecast: "Timeline",
+  home: "Chandru's Wallet",
+  rules: "Auto-Deduct",
+  forecast: "Forecast",
   settings: "Manage",
 };
 
 export default function Page() {
   const [activeTab, setActiveTab] = useState<Tab>("home");
+  const [showSplash, setShowSplash] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowSplash(false), 2000);
+    return () => clearTimeout(timer);
+  }, []);
   const {
     state,
     loaded,
@@ -34,11 +41,10 @@ export default function Page() {
     updateAutoRule,
     deleteAutoRule,
     updateBucketSplit,
+    rebalanceBuckets,
     updateSelfTaxRule,
-    updateHourlyRate,
-    toggleLifeHoursMode,
-    exportBackup,
-    importBackup,
+    exportPDF,
+    transferToVault,
     resetToDefaults,
   } = useWalletStore();
 
@@ -51,68 +57,57 @@ export default function Page() {
   }
 
   const totalBalance = Object.values(state.buckets).reduce((s, v) => s + v, 0);
-  const netWorthDisplay = state.lifeHoursMode
-    ? toLifeHours(totalBalance, state.hourlyRate).replace(" of work", "")
-    : `${totalBalance < 0 ? "-" : ""}${formatINR(totalBalance)}`;
+  const totalSpent = state.transactions
+    .filter((t) => t.amount < 0)
+    .reduce((s, t) => s + Math.abs(t.amount), 0);
+  const netWorthDisplay = `${totalBalance < 0 ? "-" : ""}${formatINR(totalBalance)}`;
 
   return (
     <div className="min-h-screen bg-zinc-950 flex flex-col max-w-md mx-auto">
+      <AnimatePresence>{showSplash && <SplashScreen />}</AnimatePresence>
       <AutoDeductToast
-        summaries={autoDeductSummaries}
+        summaries={showSplash ? [] : autoDeductSummaries}
         onDismiss={dismissAutoDeductSummaries}
       />
 
-      {/* iOS Translucent Top Bar */}
-      <header className="pt-safe sticky top-0 z-30 bg-zinc-950/90 backdrop-blur-xl border-b border-zinc-800/60">
-        <div className="px-4 py-3 flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold tracking-tight text-white">
-              {TAB_LABELS[activeTab]}
-            </h1>
-            <p className="text-[11px] text-zinc-500 tabular-nums">
-              Net{" "}
-              <span className={totalBalance >= 0 ? "text-emerald-400 font-semibold" : "text-red-400 font-semibold"}>
-                {netWorthDisplay}
-              </span>
-            </p>
+      {/* Stylish Chandru Wallet Header */}
+      <header className="pt-safe sticky top-0 z-30 bg-zinc-950/90 backdrop-blur-xl border-b border-zinc-800/50">
+        <div className="px-4 py-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/20 flex-shrink-0">
+              <Wallet size={16} className="text-zinc-950" strokeWidth={2.4} />
+            </div>
+            {activeTab === "home" ? (
+              <h1 className="text-base font-extrabold tracking-tight truncate">
+                <span className="text-white">Chandru&apos;s </span>
+                <span className="bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
+                  Wallet
+                </span>
+              </h1>
+            ) : (
+              <h1 className="text-base font-bold tracking-tight text-white truncate">
+                {TAB_LABELS[activeTab]}
+              </h1>
+            )}
           </div>
 
-          {/* Segmented INR <-> Life Hours Pill */}
-          <button
-            onClick={toggleLifeHoursMode}
-            className="btn-tap relative flex items-center bg-zinc-900 border border-zinc-800 rounded-full p-0.5 text-[11px] font-semibold"
-          >
-            <span
-              className={`relative z-10 flex items-center gap-1 px-2.5 py-1 rounded-full transition-colors ${
-                !state.lifeHoursMode ? "text-zinc-950" : "text-zinc-400"
-              }`}
-            >
-              {!state.lifeHoursMode && (
-                <motion.span
-                  layoutId="unit-pill"
-                  className="absolute inset-0 bg-emerald-400 rounded-full -z-10"
-                  transition={{ type: "spring", stiffness: 500, damping: 35 }}
-                />
-              )}
-              <IndianRupee size={11} />
-              INR
-            </span>
-            <span
-              className={`relative z-10 flex items-center gap-1 px-2.5 py-1 rounded-full transition-colors ${
-                state.lifeHoursMode ? "text-zinc-950" : "text-zinc-400"
-              }`}
-            >
-              {state.lifeHoursMode && (
-                <motion.span
-                  layoutId="unit-pill"
-                  className="absolute inset-0 bg-amber-400 rounded-full -z-10"
-                  transition={{ type: "spring", stiffness: 500, damping: 35 }}
-                />
-              )}
-              <Clock size={11} />
-              Life
-            </span>
-          </button>
+          {/* Spent & Remaining Pills */}
+          <div className="flex items-center gap-1.5 flex-shrink-0 tabular-nums">
+            <div className="px-2.5 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[11px]">
+              <span className="text-zinc-500">Spent </span>
+              <span className="text-rose-400 font-bold">{formatINR(totalSpent)}</span>
+            </div>
+            <div className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-[11px]">
+              <span className="text-emerald-400/80">Left </span>
+              <span
+                className={`font-bold ${
+                  totalBalance >= 0 ? "text-emerald-400" : "text-red-400"
+                }`}
+              >
+                {netWorthDisplay}
+              </span>
+            </div>
+          </div>
         </div>
       </header>
 
@@ -142,20 +137,20 @@ export default function Page() {
               buckets={state.buckets}
               autoRules={state.autoRules}
               monthlyIncome={state.monthlyIncome}
-              lifeHoursMode={state.lifeHoursMode}
-              hourlyRate={state.hourlyRate}
             />
           )}
           {activeTab === "settings" && (
             <SettingsTab
               monthlyIncome={state.monthlyIncome}
-              hourlyRate={state.hourlyRate}
               bucketSplit={state.bucketSplit}
+              spendBalance={state.buckets.spend}
+              totalBalance={totalBalance}
+              transactions={state.transactions}
               onAddIncome={addIncome}
               onUpdateSplit={updateBucketSplit}
-              onUpdateHourlyRate={updateHourlyRate}
-              onExport={exportBackup}
-              onImport={importBackup}
+              onRebalanceBuckets={rebalanceBuckets}
+              onTransferToVault={transferToVault}
+              onExportPDF={exportPDF}
               onReset={resetToDefaults}
             />
           )}

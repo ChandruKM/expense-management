@@ -2,12 +2,12 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "FlowWallet - Smart Deducter",
-  description: "Smart Income & Auto-Expense Deducter",
+  title: "Chandru's Wallet - Smart Expense Management",
+  description: "Smart Expense Management & Auto-Expense Deducter",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "FlowWallet",
+    title: "Chandru's Wallet",
   },
   manifest: "/manifest.webmanifest",
 };
@@ -32,7 +32,7 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="FlowWallet" />
+        <meta name="apple-mobile-web-app-title" content="Chandru's Wallet" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
       <body className="bg-zinc-950 text-white min-h-screen">

@@ -64,12 +64,8 @@ export interface WalletState {
 
   // Settings
   monthlyIncome: number;
-  hourlyRate: number; // for life hours toggle
   currency: string; // "INR"
   lastCheckedDate: string; // ISO date string YYYY-MM-DD
-
-  // UI state (not persisted)
-  lifeHoursMode: boolean;
 }
 
 export interface QuickChip {

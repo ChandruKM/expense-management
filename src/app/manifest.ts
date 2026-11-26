@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "FlowWallet - Smart Deducter",
-    short_name: "FlowWallet",
-    description: "Smart Income & Auto-Expense Deducter for iOS",
+    name: "Chandru's Wallet - Smart Expense Management",
+    short_name: "Chandru's Wallet",
+    description: "Smart Expense Management & Auto-Expense Deducter for iOS",
     start_url: "/",
     display: "standalone",
     orientation: "portrait",

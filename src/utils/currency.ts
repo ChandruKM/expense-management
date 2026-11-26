@@ -13,25 +13,6 @@ export function formatINRSigned(amount: number): string {
   return `${sign}${formatINR(amount)}`;
 }
 
-export function toLifeHours(amount: number, hourlyRate: number): string {
-  if (hourlyRate <= 0) return "0h 0m";
-  const totalMinutes = Math.round((Math.abs(amount) / hourlyRate) * 60);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  if (hours === 0) return `${minutes}m of work`;
-  if (minutes === 0) return `${hours}h of work`;
-  return `${hours}h ${minutes}m of work`;
-}
-
-export function formatDisplay(
-  amount: number,
-  lifeHoursMode: boolean,
-  hourlyRate: number
-): string {
-  if (lifeHoursMode) return toLifeHours(amount, hourlyRate);
-  return formatINR(amount);
-}
-
 export function getDaysInMonth(year: number, month: number): number {
   return new Date(year, month + 1, 0).getDate();
 }
@@ -59,7 +40,10 @@ export function getSpendHealthColor(
 }
 
 export function isoDateString(date: Date): string {
-  return date.toISOString().split("T")[0];
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 export function parseISODate(str: string): Date {

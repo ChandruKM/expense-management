@@ -11,6 +11,7 @@ import {
   BucketKey,
 } from "@/types";
 import { isoDateString, getDaysBetween, parseISODate } from "@/utils/currency";
+import { exportWalletPDF } from "@/utils/pdfExport";
 
 const STORAGE_KEY = "flowwallet_v1";
 
@@ -106,10 +107,32 @@ const DEFAULT_STATE: WalletState = {
     targetBucket: "savings",
   },
   monthlyIncome: 40000,
-  hourlyRate: 250,
   currency: "INR",
   lastCheckedDate: isoDateString(new Date()),
-  lifeHoursMode: false,
+};
+
+const EMPTY_STATE: WalletState = {
+  buckets: {
+    needs: 0,
+    spend: 0,
+    savings: 0,
+  },
+  bucketSplit: {
+    needs: 50,
+    spend: 30,
+    savings: 20,
+  },
+  transactions: [],
+  autoRules: [],
+  selfTaxRule: {
+    enabled: false,
+    triggerCategory: "Food Delivery / Junk",
+    penaltyAmount: 100,
+    targetBucket: "savings",
+  },
+  monthlyIncome: 0,
+  currency: "INR",
+  lastCheckedDate: isoDateString(new Date()),
 };
 
 function loadState(): WalletState {
@@ -119,7 +142,7 @@ function loadState(): WalletState {
     if (!raw) return DEFAULT_STATE;
     const parsed = JSON.parse(raw);
     // Merge to pick up any new default fields
-    return { ...DEFAULT_STATE, ...parsed, lifeHoursMode: false };
+    return { ...DEFAULT_STATE, ...parsed };
   } catch {
     return DEFAULT_STATE;
   }
@@ -128,8 +151,7 @@ function loadState(): WalletState {
 function saveState(state: WalletState): void {
   if (typeof window === "undefined") return;
   try {
-    const { lifeHoursMode: _, ...toSave } = state;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch {
     // quota exceeded
   }
@@ -247,38 +269,17 @@ export function useWalletStore() {
         const spendAmt = Math.round((amount * split.spend) / 100);
         const savingsAmt = amount - needsAmt - spendAmt;
 
-        const baseId = generateId();
         const today = isoDateString(new Date());
 
-        const newTxns: Transaction[] = [
-          {
-            id: `${baseId}_n`,
-            date: today,
-            type: "income",
-            category,
-            note: `${note} → Fixed Bills`,
-            amount: needsAmt,
-            bucket: "needs",
-          },
-          {
-            id: `${baseId}_s`,
-            date: today,
-            type: "income",
-            category,
-            note: `${note} → Safe-to-Spend`,
-            amount: spendAmt,
-            bucket: "spend",
-          },
-          {
-            id: `${baseId}_v`,
-            date: today,
-            type: "income",
-            category,
-            note: `${note} → Savings Vault`,
-            amount: savingsAmt,
-            bucket: "savings",
-          },
-        ];
+        const incomeTxn: Transaction = {
+          id: generateId(),
+          date: today,
+          type: "income",
+          category,
+          note: note || category,
+          amount,
+          bucket: "spend",
+        };
 
         return {
           ...prev,
@@ -287,9 +288,8 @@ export function useWalletStore() {
             spend: prev.buckets.spend + spendAmt,
             savings: prev.buckets.savings + savingsAmt,
           },
-          transactions: [...prev.transactions, ...newTxns],
+          transactions: [...prev.transactions, incomeTxn],
           monthlyIncome: amount,
-          hourlyRate: Math.round(amount / 160),
         };
       });
     },
@@ -315,17 +315,17 @@ export function useWalletStore() {
 
         // Self-tax check
         const selfTax = prev.selfTaxRule;
-        if (selfTax.enabled && category === selfTax.triggerCategory) {
+        if (selfTax.enabled && category === selfTax.triggerCategory && selfTax.penaltyAmount > 0) {
           newTxns.push({
             id: generateId(),
             date: today,
             type: "self-tax",
             category: "Self-Tax Penalty",
-            note: `Self-tax for ${category}`,
+            note: `Self-tax → Vault`,
             amount: -selfTax.penaltyAmount,
-            bucket: selfTax.targetBucket,
+            bucket,
           });
-          // Move penalty from spend to savings
+          // Move penalty from source bucket to target savings bucket
           newBuckets[bucket] = newBuckets[bucket] - selfTax.penaltyAmount;
           newBuckets[selfTax.targetBucket] = newBuckets[selfTax.targetBucket] + selfTax.penaltyAmount;
         }
@@ -377,6 +377,30 @@ export function useWalletStore() {
     [setState]
   );
 
+  const rebalanceBuckets = useCallback(
+    (split: BucketSplit) => {
+      setState((prev) => {
+        const total = prev.buckets.needs + prev.buckets.spend + prev.buckets.savings;
+        if (total <= 0) {
+          return { ...prev, bucketSplit: split };
+        }
+        const needsAmt = Math.round((total * split.needs) / 100);
+        const spendAmt = Math.round((total * split.spend) / 100);
+        const savingsAmt = total - needsAmt - spendAmt;
+        return {
+          ...prev,
+          bucketSplit: split,
+          buckets: {
+            needs: needsAmt,
+            spend: spendAmt,
+            savings: savingsAmt,
+          },
+        };
+      });
+    },
+    [setState]
+  );
+
   const updateSelfTaxRule = useCallback(
     (rule: SelfTaxRule) => {
       setState((prev) => ({ ...prev, selfTaxRule: rule }));
@@ -384,20 +408,8 @@ export function useWalletStore() {
     [setState]
   );
 
-  const updateHourlyRate = useCallback(
-    (rate: number) => {
-      setState((prev) => ({ ...prev, hourlyRate: rate }));
-    },
-    [setState]
-  );
-
-  const toggleLifeHoursMode = useCallback(() => {
-    setStateRaw((prev) => ({ ...prev, lifeHoursMode: !prev.lifeHoursMode }));
-  }, []);
-
   const exportBackup = useCallback(() => {
-    const { lifeHoursMode: _, ...toExport } = state;
-    const json = JSON.stringify(toExport, null, 2);
+    const json = JSON.stringify(state, null, 2);
     const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -407,11 +419,46 @@ export function useWalletStore() {
     URL.revokeObjectURL(url);
   }, [state]);
 
+  const exportPDF = useCallback(() => {
+    exportWalletPDF(state);
+  }, [state]);
+
+  const transferToVault = useCallback(
+    (amount: number) => {
+      if (amount <= 0) return;
+      setState((prev) => {
+        const available = Math.max(0, prev.buckets.spend);
+        const moveAmt = Math.min(amount, available);
+        if (moveAmt <= 0) return prev;
+        const today = isoDateString(new Date());
+        const tx: Transaction = {
+          id: generateId(),
+          date: today,
+          type: "expense",
+          category: "Vault Transfer",
+          note: "Moved to Vault",
+          amount: -moveAmt,
+          bucket: "spend",
+        };
+        return {
+          ...prev,
+          buckets: {
+            ...prev.buckets,
+            spend: prev.buckets.spend - moveAmt,
+            savings: prev.buckets.savings + moveAmt,
+          },
+          transactions: [...prev.transactions, tx],
+        };
+      });
+    },
+    [setState]
+  );
+
   const importBackup = useCallback(
     (json: string) => {
       try {
         const parsed = JSON.parse(json);
-        setState(() => ({ ...DEFAULT_STATE, ...parsed, lifeHoursMode: false }));
+        setState(() => ({ ...DEFAULT_STATE, ...parsed }));
       } catch {
         alert("Invalid backup file");
       }
@@ -420,7 +467,11 @@ export function useWalletStore() {
   );
 
   const resetToDefaults = useCallback(() => {
-    setState(() => DEFAULT_STATE);
+    setAutoDeductSummaries([]);
+    setState(() => ({
+      ...EMPTY_STATE,
+      lastCheckedDate: isoDateString(new Date()),
+    }));
   }, [setState]);
 
   const dismissAutoDeductSummaries = useCallback(() => {
@@ -438,10 +489,11 @@ export function useWalletStore() {
     updateAutoRule,
     deleteAutoRule,
     updateBucketSplit,
+    rebalanceBuckets,
     updateSelfTaxRule,
-    updateHourlyRate,
-    toggleLifeHoursMode,
     exportBackup,
+    exportPDF,
+    transferToVault,
     importBackup,
     resetToDefaults,
   };
